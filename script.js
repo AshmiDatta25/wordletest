@@ -1,80 +1,139 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const submitButton = document.getElementById("submit");
-    const rows = document.querySelectorAll(".row");
-    let currentRow = 0;
-    let currentCellIndex = 0;
-    let wordToGuess = "";
+let wordToGuess = "";  // Initialize an empty word
+let currentRow = 0;
+let currentCol = 0;
+const maxRows = 6;
+const maxCols = 5;
+let isGameOver = false;
 
-    // Function to fetch words from the words.txt file and choose one randomly
-    function fetchWordList() {
-        fetch("words.txt")
-            .then(response => response.text())
-            .then(data => {
-                const words = data.split("\n").map(word => word.trim().toUpperCase());
-                wordToGuess = words[Math.floor(Math.random() * words.length)];
-                console.log("Word to guess:", wordToGuess); // For debugging purposes
+const rows = document.querySelectorAll(".row");
+const keys = document.querySelectorAll(".key");
+const keyz = document.querySelectorAll(".keyS");
 
-                // Display the fetched word for testing
-                document.getElementById("word-text").textContent = wordToGuess;
-            })
-            .catch(error => console.error('Error fetching word list:', error));
+// Fetch the word list and select a random word
+fetch('samplewords.txt')
+    .then(response => response.text())
+    .then(data => {
+        const wordList = data.split('\n').map(word => word.trim().toUpperCase());
+        wordToGuess = wordList[Math.floor(Math.random() * wordList.length)]; // Randomly select a word
+        console.log("Selected Word: ", wordToGuess); // Debugging purpose
+    })
+    .catch(error => {
+        console.error("Error fetching word list:", error);
+    });
+
+// Enable the first row
+enableCurrentRow();
+
+function enableCurrentRow() {
+    const currentRowCells = rows[currentRow].querySelectorAll(".cell");
+    currentRowCells.forEach(cell => {
+        cell.disabled = false;
+    });
+}
+
+// Function to capture both physical and on-screen keyboard input
+document.addEventListener("keydown", (e) => {
+    if (!isGameOver) {
+        handleKeyPress(e.key.toUpperCase());
     }
+});
 
-    // Call the function to fetch the word list and select a word
-    fetchWordList();
+keyz.forEach(keyS => {
+    keyS.addEventListener("click", () => {
+        if (!isGameOver) {
+            handleKeyPress(keyS.innerText.toUpperCase());
+        }
+    });
+});
+keys.forEach(key => {
+    key.addEventListener("click", () => {
+        if (!isGameOver) {
+            handleKeyPress(key.innerText.toUpperCase());
+        }
+    });
+});
 
-    function evaluateGuess() {
-        const cells = rows[currentRow].querySelectorAll(".cell");
-        let guess = "";
-        cells.forEach(cell => {
-            guess += cell.value.toUpperCase();
-        });
+function handleKeyPress(keyS) {
+    const currentRowCells = rows[currentRow].querySelectorAll(".cell");
+    
+    if (keyS === "ENTER") {
+        if (currentCol === maxCols) {
+            checkGuess();
+        } else {
+            alert("Please fill all letters before submitting.");
+        }
+    } else if (keyS === "DEL" || keyS === "BACKSPACE") {
+        if (currentCol > 0) {
+            currentCol--;
+            currentRowCells[currentCol].value = "";
+        }
+    } else if (keyS.match(/^[A-Z]$/) && currentCol < maxCols) {
+        currentRowCells[currentCol].value = keyS;
+        currentCol++;
+    }
+}
 
-        if (guess.length !== 5) return;
+// Check the current guess
+function checkGuess() {
+    const currentRowCells = rows[currentRow].querySelectorAll(".cell");
+    let guess = "";
+    currentRowCells.forEach(cell => {
+        guess += cell.value.toUpperCase();
+    });
 
-        for (let i = 0; i < 5; i++) {
-            if (guess[i] === wordToGuess[i]) {
-                cells[i].classList.add("correct");
-            } else if (wordToGuess.includes(guess[i])) {
-                cells[i].classList.add("present");
+    if (guess.length === maxCols) {
+        // Color the grid based on the guess
+        for (let i = 0; i < maxCols; i++) {
+            const cell = currentRowCells[i];
+            const letter = guess[i];
+            const keyButton = Array.from(keys).find(k => k.innerText === letter);
+            
+            if (wordToGuess[i] === letter) {
+                cell.style.backgroundColor = "green";
+                keyButton.style.backgroundColor = "green";
+            } else if (wordToGuess.includes(letter)) {
+                cell.style.backgroundColor = "yellow";
+                keyButton.style.backgroundColor = keyButton.style.backgroundColor !== "green" ? "yellow" : "green";
             } else {
-                cells[i].classList.add("absent");
+                cell.style.backgroundColor = "gray";
+                keyButton.style.backgroundColor = "gray";
             }
         }
 
         if (guess === wordToGuess) {
-            alert("Congratulations! You've guessed the word!");
-        } else if (currentRow === 5) {
-            alert(`Game Over! The word was ${wordToGuess}.`);
+            alert("Congratulations! You guessed the word.");
+            isGameOver = true;
+        } else if (currentRow < maxRows - 1) {
+            currentRow++;
+            currentCol = 0;
+            enableCurrentRow();
         } else {
-            enableNextRow();
+            alert("Game over! The word was " + wordToGuess);
+            isGameOver = true;
         }
     }
+}
 
-    function enableNextRow() {
-        currentRow++;
-        currentCellIndex = 0;
-        const nextRowCells = rows[currentRow].querySelectorAll(".cell");
-        nextRowCells.forEach(cell => cell.disabled = false);
+// Get modal element
+const modal = document.getElementById("howToPlayModal");
+// Get the button that opens the modal
+const btn = document.getElementById("howToPlayBtn");
+// Get the <span> element that closes the modal
+const span = document.getElementsByClassName("close")[0];
+
+// When the user clicks the button, open the modal
+btn.onclick = function() {
+    modal.style.display = "block";
+}
+
+// When the user clicks on <span> (x), close the modal
+span.onclick = function() {
+    modal.style.display = "none";
+}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+    if (event.target === modal) {
+        modal.style.display = "none";
     }
-
-    function handleTyping(e) {
-        const currentRowCells = rows[currentRow].querySelectorAll(".cell");
-        if (e.key >= 'a' && e.key <= 'z' || e.key >= 'A' && e.key <= 'Z') {
-            if (currentCellIndex < 5) {
-                currentRowCells[currentCellIndex].value = e.key.toUpperCase();
-                currentCellIndex++;
-            }
-        } else if (e.key === 'Backspace') {
-            if (currentCellIndex > 0) {
-                currentCellIndex--;
-                currentRowCells[currentCellIndex].value = "";
-            }
-        } else if (e.key === 'Enter') {
-            evaluateGuess();
-        }
-    }
-
-    document.addEventListener("keydown", handleTyping);
-    submitButton.addEventListener("click", evaluateGuess);
-});
+}
